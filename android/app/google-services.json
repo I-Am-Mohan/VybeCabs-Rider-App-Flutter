@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "460010570906",
+    "project_id": "vybecabs-rider-316fd",
+    "storage_bucket": "vybecabs-rider-316fd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:460010570906:android:c275cc5bad022d5eef0b23",
+        "android_client_info": {
+          "package_name": "com.vybecabs.vybecabs_rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMk5nraZDBs7q9xdBUJADLlKtB3R6xmrU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
