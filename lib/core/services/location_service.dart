@@ -9,7 +9,7 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 });
 
 /// Riverpod provider for real dynamic user location
-final userLocationProvider = FutureProvider<LocationItem>((ref) async {
+final userLocationProvider = FutureProvider<LocationItem?>((ref) async {
   final locationService = ref.watch(locationServiceProvider);
   final coords = await locationService.getCurrentLocation();
 
@@ -28,14 +28,7 @@ final userLocationProvider = FutureProvider<LocationItem>((ref) async {
     );
   }
 
-  // If GPS is unavailable, return default current location placeholder
-  return const LocationItem(
-    id: 'user_real_location',
-    title: 'Current Location',
-    subtitle: 'Device Location',
-    coordinates: LatLng(28.6139, 77.2090),
-    isCurrentLocation: true,
-  );
+  return null;
 });
 
 class LocationService {

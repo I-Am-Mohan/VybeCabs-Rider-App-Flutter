@@ -16,12 +16,87 @@ abstract final class RouteUtils {
     return waypoints;
   }
 
-  /// Generates a realistic starting point for a driver ~700-900m away from pickup
-  static LatLng generateNearbyDriverPosition(LatLng pickup) {
+  /// Generates smooth waypoints along a multi-stop route: start -> stop1 -> stop2 -> end
+  static List<LatLng> generateMultiStopRoute(List<LatLng> points, {int stepsPerLeg = 6}) {
+    if (points.length < 2) return points;
+    final List<LatLng> fullRoute = [];
+    for (int i = 0; i < points.length - 1; i++) {
+      final leg = generateWaypoints(points[i], points[i + 1], steps: stepsPerLeg);
+      if (i > 0 && leg.isNotEmpty) {
+        fullRoute.addAll(leg.skip(1));
+      } else {
+        fullRoute.addAll(leg);
+      }
+    }
+    return fullRoute;
+  }
+
+  /// Calculates the Great Circle distance between two coordinates in kilometers using Haversine formula
+  static double calculateDistanceKm(LatLng start, LatLng end) {
+    const double earthRadiusKm = 6371.0;
+    final double dLat = (end.latitude - start.latitude) * pi / 180.0;
+    final double dLon = (end.longitude - start.longitude) * pi / 180.0;
+
+    final double lat1Rad = start.latitude * pi / 180.0;
+    final double lat2Rad = end.latitude * pi / 180.0;
+
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        sin(dLon / 2) * sin(dLon / 2) * cos(lat1Rad) * cos(lat2Rad);
+    final double c = 2 * atan2(sqrt(a), sqrt(1.0 - a));
+
+    return earthRadiusKm * c;
+  }
+
+  /// Calculates the midpoint between two LatLng coordinates
+  static LatLng calculateMidpoint(LatLng p1, LatLng p2) {
     return LatLng(
-      pickup.latitude + 0.0058,
-      pickup.longitude + 0.0042,
+      (p1.latitude + p2.latitude) / 2,
+      (p1.longitude + p2.longitude) / 2,
     );
+  }
+
+  /// Generates a realistic random starting position for a driver located
+  /// [minDistanceKm] to [maxDistanceKm] away from the user's [pickup] coordinates (default 2.0 - 3.0 km).
+  static LatLng generateNearbyDriverPosition(
+    LatLng pickup, {
+    double minDistanceKm = 2.0,
+    double maxDistanceKm = 3.0,
+    Random? random,
+  }) {
+    final rng = random ?? Random();
+
+    // Area-uniform random distance within the [minDistanceKm, maxDistanceKm] circular band
+    final double u = rng.nextDouble();
+    final double distanceKm = sqrt(
+      u * (maxDistanceKm * maxDistanceKm - minDistanceKm * minDistanceKm) +
+          (minDistanceKm * minDistanceKm),
+    );
+
+    // Random bearing angle in [0, 2*pi) radians (0 to 360 degrees)
+    final double bearingRad = rng.nextDouble() * 2 * pi;
+
+    const double earthRadiusKm = 6371.0;
+    final double angularDistance = distanceKm / earthRadiusKm;
+
+    final double lat1Rad = pickup.latitude * pi / 180.0;
+    final double lon1Rad = pickup.longitude * pi / 180.0;
+
+    // Geodesic destination point calculation on sphere
+    final double lat2Rad = asin(
+      sin(lat1Rad) * cos(angularDistance) +
+          cos(lat1Rad) * sin(angularDistance) * cos(bearingRad),
+    );
+
+    final double lon2Rad = lon1Rad +
+        atan2(
+          sin(bearingRad) * sin(angularDistance) * cos(lat1Rad),
+          cos(angularDistance) - sin(lat1Rad) * sin(lat2Rad),
+        );
+
+    final double lat2 = lat2Rad * 180.0 / pi;
+    final double lon2 = ((lon2Rad * 180.0 / pi + 540.0) % 360.0) - 180.0;
+
+    return LatLng(lat2, lon2);
   }
 
   /// Calculates the vehicle bearing / heading between two LatLng coordinates in degrees

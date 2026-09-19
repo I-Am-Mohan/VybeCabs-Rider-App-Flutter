@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../core/services/local_storage_service.dart';
 import '../../../../core/utils/route_utils.dart';
 import '../../../booking/domain/vehicle_tier.dart';
@@ -26,10 +25,14 @@ class TrackingController extends StateNotifier<ActiveRideState?> {
   TrackingController(this._storage) : super(null);
 
   void startRideBooking(BookingState booking) {
+    if (booking.pickup == null || booking.destination == null) return;
+    final pickup = booking.pickup!;
+    final destination = booking.destination!;
+
     _simulationTimer?.cancel();
     _currentWaypointIndex = 0;
 
-    final rideId = 'vybe_${const Uuid().v4().substring(0, 8)}';
+    final rideId = 'ride_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999)}';
     final randomPin = '${1000 + Random().nextInt(9000)}';
     final fare = booking.calculateFare(booking.selectedVehicle);
 
@@ -46,8 +49,8 @@ class TrackingController extends StateNotifier<ActiveRideState?> {
         break;
     }
 
-    final pickupCoord = booking.pickup.coordinates;
-    final destCoord = booking.destination?.coordinates ?? pickupCoord;
+    final pickupCoord = pickup.coordinates;
+    final destCoord = destination.coordinates;
     final initialDriverLocation = RouteUtils.generateNearbyDriverPosition(pickupCoord);
 
     // Dynamically generate waypoints relative to real location
@@ -57,18 +60,20 @@ class TrackingController extends StateNotifier<ActiveRideState?> {
       steps: 6,
     );
 
-    _tripWaypoints = RouteUtils.generateWaypoints(
+    // Multi-stop route: Pickup -> Stop 1 -> Stop 2 -> Destination
+    final tripPoints = [
       pickupCoord,
+      ...booking.stops.map((s) => s.coordinates),
       destCoord,
-      steps: 8,
-    );
+    ];
+    _tripWaypoints = RouteUtils.generateMultiStopRoute(tripPoints, stepsPerLeg: 6);
 
     state = ActiveRideState(
       id: rideId,
       stage: RideStage.findingDriver,
-      pickup: booking.pickup,
+      pickup: pickup,
       stops: booking.stops,
-      destination: booking.destination ?? booking.pickup,
+      destination: destination,
       vehicleTier: booking.selectedVehicle,
       driver: driver,
       ridePin: randomPin,

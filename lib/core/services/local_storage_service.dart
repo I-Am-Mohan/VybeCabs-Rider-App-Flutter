@@ -50,7 +50,13 @@ class LocalStorageService {
     }
     try {
       final List<dynamic> decoded = jsonDecode(raw);
-      return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final list =
+          decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      // Filter out any legacy pre-seeded mock rides so history starts clean and dynamic
+      return list.where((ride) {
+        final id = ride['id'] as String? ?? '';
+        return !id.startsWith('vybe_ride_00');
+      }).toList();
     } catch (_) {
       return _getDefaultInitialRides();
     }
@@ -77,24 +83,7 @@ class LocalStorageService {
   List<Map<String, dynamic>> getSavedPlaces() {
     final raw = _prefs.getString(AppConstants.keySavedPlaces);
     if (raw == null || raw.isEmpty) {
-      return [
-        {
-          'id': 'p1',
-          'title': 'Home',
-          'address': '2066, Nripen Ghosh Sarani Rd, Kolkata',
-          'latitude': 22.50212,
-          'longitude': 88.35815,
-          'icon': 'home',
-        },
-        {
-          'id': 'p2',
-          'title': 'Work',
-          'address': 'Salt Lake Sector V, Kolkata',
-          'latitude': 22.5735,
-          'longitude': 88.4331,
-          'icon': 'work',
-        },
-      ];
+      return [];
     }
     try {
       final List<dynamic> decoded = jsonDecode(raw);
@@ -108,95 +97,9 @@ class LocalStorageService {
     await _prefs.setString(AppConstants.keySavedPlaces, jsonEncode(places));
   }
 
-  // Initial seed rides (per task.md: "hardcode 5–6 past rides with date, pickup, drop, and fare")
+  /// Starts with empty history per user specification.
+  /// Completed rides will be added dynamically as trips finish.
   List<Map<String, dynamic>> _getDefaultInitialRides() {
-    final initial = [
-      {
-        'id': 'vybe_ride_001',
-        'date': DateTime.now().subtract(const Duration(days: 1, hours: 3)).toIso8601String(),
-        'pickup': '2066, Nripen Ghosh Sarani Rd',
-        'destination': 'Park Street Metro, Kolkata',
-        'stops': <String>[],
-        'fare': 185.0,
-        'vehicleType': 'Car (Vybe Go)',
-        'driverName': 'Rajesh Kumar',
-        'vehicleNumber': 'WB 02 AK 9821',
-        'paymentMethod': 'UPI (Google Pay)',
-        'paymentStatus': 'PAID',
-        'rating': 4.9,
-      },
-      {
-        'id': 'vybe_ride_002',
-        'date': DateTime.now().subtract(const Duration(days: 2, hours: 5)).toIso8601String(),
-        'pickup': 'South City Mall, Prince Anwar Shah Rd',
-        'destination': 'Rabindra Sarobar Lake Gate 3',
-        'stops': <String>[],
-        'fare': 45.0,
-        'vehicleType': 'Tirri (E-Rickshaw)',
-        'driverName': 'Sunil Mondal',
-        'vehicleNumber': 'WB 19 ER 3310',
-        'paymentMethod': 'Cash',
-        'paymentStatus': 'PAID',
-        'rating': 5.0,
-      },
-      {
-        'id': 'vybe_ride_003',
-        'date': DateTime.now().subtract(const Duration(days: 4, hours: 8)).toIso8601String(),
-        'pickup': 'Nripen Ghosh Sarani Rd',
-        'destination': 'Salt Lake Sector V, Technopolis',
-        'stops': ['Gariahat Crossing'],
-        'fare': 85.0,
-        'vehicleType': 'Bike (Vybe Moto)',
-        'driverName': 'Amit Roy',
-        'vehicleNumber': 'WB 07 BK 4429',
-        'paymentMethod': 'Card (HDFC Visa)',
-        'paymentStatus': 'PAID',
-        'rating': 4.8,
-      },
-      {
-        'id': 'vybe_ride_004',
-        'date': DateTime.now().subtract(const Duration(days: 6, hours: 2)).toIso8601String(),
-        'pickup': 'Netaji Subhash Chandra Bose Airport',
-        'destination': '2066, Nripen Ghosh Sarani Rd',
-        'stops': <String>[],
-        'fare': 420.0,
-        'vehicleType': 'Car (Vybe Prime)',
-        'driverName': 'Deepak Sharma',
-        'vehicleNumber': 'WB 04 PR 1109',
-        'paymentMethod': 'UPI (PhonePe)',
-        'paymentStatus': 'PAID',
-        'rating': 5.0,
-      },
-      {
-        'id': 'vybe_ride_005',
-        'date': DateTime.now().subtract(const Duration(days: 9, hours: 6)).toIso8601String(),
-        'pickup': 'Howrah Railway Station Platform 8',
-        'destination': 'South City Mall',
-        'stops': <String>[],
-        'fare': 230.0,
-        'vehicleType': 'Car (Vybe Go)',
-        'driverName': 'Manoj Sen',
-        'vehicleNumber': 'WB 12 TX 7812',
-        'paymentMethod': 'Cash',
-        'paymentStatus': 'PAID',
-        'rating': 4.7,
-      },
-      {
-        'id': 'vybe_ride_006',
-        'date': DateTime.now().subtract(const Duration(days: 12, hours: 4)).toIso8601String(),
-        'pickup': '2066, Nripen Ghosh Sarani Rd',
-        'destination': 'Jadavpur University 8B Bus Stand',
-        'stops': <String>[],
-        'fare': 30.0,
-        'vehicleType': 'Tirri (E-Rickshaw)',
-        'driverName': 'Bikas Ghosh',
-        'vehicleNumber': 'WB 19 ER 5521',
-        'paymentMethod': 'UPI (Paytm)',
-        'paymentStatus': 'PAID',
-        'rating': 4.9,
-      },
-    ];
-    _prefs.setString(AppConstants.keyRideHistory, jsonEncode(initial));
-    return initial;
+    return [];
   }
 }

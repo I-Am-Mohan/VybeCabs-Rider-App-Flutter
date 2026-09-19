@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vybe_bottom_sheet.dart';
@@ -12,7 +13,10 @@ class PaymentBottomSheet extends ConsumerStatefulWidget {
 
   const PaymentBottomSheet({super.key, required this.ride});
 
-  static Future<void> show(BuildContext context, {required ActiveRideState ride}) {
+  static Future<void> show(
+    BuildContext context, {
+    required ActiveRideState ride,
+  }) {
     return VybeBottomSheet.show(
       context: context,
       builder: (ctx) => PaymentBottomSheet(ride: ride),
@@ -78,7 +82,8 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet>
   @override
   Widget build(BuildContext context) {
     if (_isSuccess) {
-      return Padding(
+      return Container(
+        color: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -96,7 +101,7 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet>
                       color: Color(0x331FA64A),
                       blurRadius: 16,
                       offset: Offset(0, 4),
-                    )
+                    ),
                   ],
                 ),
                 child: const Center(
@@ -254,7 +259,9 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.surface : AppColors.surfaceSecondary,
+                color: isSelected
+                    ? AppColors.surface
+                    : AppColors.surfaceSecondary,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -291,7 +298,9 @@ class _PaymentBottomSheetState extends ConsumerState<PaymentBottomSheet>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.borderStrong,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.borderStrong,
                   width: 2,
                 ),
                 color: isSelected ? AppColors.primary : Colors.transparent,

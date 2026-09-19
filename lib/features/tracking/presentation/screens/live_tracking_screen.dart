@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/map_marker_utils.dart';
+import '../../../booking/domain/vehicle_tier.dart';
 import '../../domain/ride_state.dart';
 import '../controllers/tracking_controller.dart';
 import '../widgets/finding_driver_card.dart';
@@ -19,6 +22,74 @@ class LiveTrackingScreen extends ConsumerStatefulWidget {
 class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
   GoogleMapController? _mapController;
   bool _hasShownCompletedDialog = false;
+
+  BitmapDescriptor? _pickupIcon;
+  BitmapDescriptor? _destinationIcon;
+  final Map<int, BitmapDescriptor> _stopIcons = {};
+  BitmapDescriptor? _vehicleIcon;
+  VehicleType? _loadedVehicleType;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMarkerIcons();
+  }
+
+  Future<void> _loadMarkerIcons() async {
+    final pickup = await MapMarkerUtils.createIconMarker(
+      icon: Icons.person_pin_circle_rounded,
+      backgroundColor: const Color(0xFF00A86B), // Emerald green
+      iconColor: Colors.white,
+      size: 50,
+    );
+    final drop = await MapMarkerUtils.createIconMarker(
+      icon: Icons.flag_rounded,
+      backgroundColor: AppColors.primary,
+      iconColor: Colors.white,
+      size: 50,
+    );
+    final stop1 = await MapMarkerUtils.createIconMarker(
+      icon: Icons.location_on_rounded,
+      backgroundColor: const Color(0xFFF59E0B),
+      iconColor: Colors.white,
+      stopNumber: '1',
+      size: 50,
+    );
+    final stop2 = await MapMarkerUtils.createIconMarker(
+      icon: Icons.location_on_rounded,
+      backgroundColor: const Color(0xFFF59E0B),
+      iconColor: Colors.white,
+      stopNumber: '2',
+      size: 50,
+    );
+    final stop3 = await MapMarkerUtils.createIconMarker(
+      icon: Icons.location_on_rounded,
+      backgroundColor: const Color(0xFFF59E0B),
+      iconColor: Colors.white,
+      stopNumber: '3',
+      size: 50,
+    );
+    if (mounted) {
+      setState(() {
+        _pickupIcon = pickup;
+        _destinationIcon = drop;
+        _stopIcons[0] = stop1;
+        _stopIcons[1] = stop2;
+        _stopIcons[2] = stop3;
+      });
+    }
+  }
+
+  Future<void> _ensureVehicleIcon(VehicleType type) async {
+    if (_vehicleIcon != null && _loadedVehicleType == type) return;
+    final icon = await MapMarkerUtils.createVehicleMarker(vehicleType: type);
+    if (mounted) {
+      setState(() {
+        _vehicleIcon = icon;
+        _loadedVehicleType = type;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -43,7 +114,8 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
     }
 
     // Destination reached transition
-    if (next.stage == RideStage.reachedDestination && !_hasShownCompletedDialog) {
+    if (next.stage == RideStage.reachedDestination &&
+        !_hasShownCompletedDialog) {
       _hasShownCompletedDialog = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (next.paymentStatus == PaymentStatus.pending) {
@@ -77,9 +149,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(title: const Text('Ride Status')),
-        body: const Center(
-          child: Text('No active ride found.'),
-        ),
+        body: const Center(child: Text('No active ride found.')),
       );
     }
 
@@ -99,33 +169,41 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
       ),
     };
 
-    // Build Markers
+    _ensureVehicleIcon(ride.vehicleTier.type);
+
+    // Build Markers with custom icons
     final Set<Marker> markers = {
       // Pickup Marker
       Marker(
         markerId: const MarkerId('pickup_pin'),
         position: ride.pickup.coordinates,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon:
+            _pickupIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         infoWindow: InfoWindow(title: 'Pickup: ${ride.pickup.title}'),
       ),
       // Destination Marker
       Marker(
         markerId: const MarkerId('destination_pin'),
         position: ride.destination.coordinates,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        icon:
+            _destinationIcon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
         infoWindow: InfoWindow(title: 'Drop: ${ride.destination.title}'),
       ),
       // Stops Markers
       ...ride.stops.asMap().entries.map(
-            (entry) => Marker(
-              markerId: MarkerId('stop_marker_${entry.key}'),
-              position: entry.value.coordinates,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueYellow),
-              infoWindow: InfoWindow(
-                  title: 'Stop ${entry.key + 1}: ${entry.value.title}'),
-            ),
+        (entry) => Marker(
+          markerId: MarkerId('stop_marker_${entry.key}'),
+          position: entry.value.coordinates,
+          icon:
+              _stopIcons[entry.key] ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+          infoWindow: InfoWindow(
+            title: 'Stop ${entry.key + 1}: ${entry.value.title}',
           ),
+        ),
+      ),
       // Driver Marker
       if (ride.stage != RideStage.findingDriver)
         Marker(
@@ -134,7 +212,9 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
           rotation: ride.driverBearing,
           anchor: const Offset(0.5, 0.5),
           flat: true,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          icon:
+              _vehicleIcon ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
             title: ride.driver?.name ?? 'Driver',
             snippet: '${ride.vehicleTier.name} • ${ride.driver?.vehicleNumber}',
@@ -170,7 +250,10 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     InkWell(
@@ -200,7 +283,9 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                     const SizedBox(width: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
@@ -221,10 +306,10 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                             ride.stage == RideStage.findingDriver
                                 ? 'Finding Driver...'
                                 : (ride.stage == RideStage.rideStarted
-                                    ? 'Ride In Progress'
-                                    : (ride.stage == RideStage.driverArrived
-                                        ? 'Driver Arrived'
-                                        : 'Driver Assigned')),
+                                      ? 'Ride In Progress'
+                                      : (ride.stage == RideStage.driverArrived
+                                            ? 'Driver Arrived'
+                                            : 'Driver Assigned')),
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 12.5,
@@ -242,10 +327,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                       elevation: 2,
                       onPressed: () {
                         _mapController?.animateCamera(
-                          CameraUpdate.newLatLngZoom(
-                            ride.driverLocation,
-                            15.5,
-                          ),
+                          CameraUpdate.newLatLngZoom(ride.driverLocation, 15.5),
                         );
                       },
                       child: const Icon(Icons.my_location, size: 20),

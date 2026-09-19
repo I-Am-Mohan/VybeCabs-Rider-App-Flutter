@@ -2,37 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/vybe_badge.dart';
 import '../../../../core/services/local_storage_service.dart';
-import '../../../../core/services/location_service.dart';
+import '../../../../core/widgets/vybe_bounce.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../booking/presentation/screens/location_selector_screen.dart';
-import '../../../booking/data/booking_dummy_data.dart';
-import '../../../booking/presentation/controllers/booking_controller.dart';
-import '../../../booking/presentation/screens/vehicle_selection_sheet.dart';
-import '../widgets/switch_account_sheet.dart';
-import '../widgets/profile_menu_sheet.dart';
+import '../widgets/home_top_bar.dart';
+import '../widgets/home_greeting_section.dart';
+import '../widgets/home_search_bar.dart';
+import '../widgets/quick_ride_card.dart';
+import '../widgets/office_commute_card.dart';
+import '../widgets/service_grid_card.dart';
+import '../widgets/nearby_suggestions_section.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _selectedCategoryIndex = 0; // 0: Ride, 1: Work, 2: Care
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning!';
-    if (hour < 17) return 'Good Afternoon!';
-    return 'Good Evening!';
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
     final storage = ref.watch(localStorageServiceProvider);
     final user = authState.user;
@@ -43,501 +29,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? user!.phone
         : (storage.userPhone.isNotEmpty ? storage.userPhone : '');
 
-    final userLocationAsync = ref.watch(userLocationProvider);
-    final userAddress =
-        userLocationAsync.value?.subtitle ??
-        (userLocationAsync.isLoading ? 'Locating...' : 'Current Location');
+    void navigateToBooking() {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const LocationSelectorScreen(),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Header Bar matching 4.jpg
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => SwitchAccountSheet.show(
-                        context,
-                        name: userName,
-                        phone: userPhone,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '${_getGreeting()} $userName',
-                                style: AppTypography.titleLarge.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 20,
-                                color: AppColors.iconPrimary,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            userAddress,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.textTertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => ProfileMenuSheet.show(context, name: userName),
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.borderSubtle),
-                        color: AppColors.surface,
-                      ),
-                      child: const Icon(
-                        Icons.person_outline_rounded,
-                        size: 24,
-                        color: AppColors.iconPrimary,
-                      ),
-                    ),
-                  ),
-                ],
+              // 1. Top Bar matching home.jpg
+              // Hamburger menu (left) -> ProfileMenuSheet
+              // Bell (right) & Profile avatar (right) -> SwitchAccountSheet
+              VybeFadeSlide(
+                duration: const Duration(milliseconds: 300),
+                child: HomeTopBar(
+                  userName: userName,
+                  userPhone: userPhone,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // 2. Greeting & Name across 2 distinct lines + Subtitle
+              VybeFadeSlide(
+                duration: const Duration(milliseconds: 350),
+                delay: const Duration(milliseconds: 50),
+                child: HomeGreetingSection(userName: userName),
+              ),
+              const SizedBox(height: 18),
+
+              // 3. Search Bar ("Where are you going?")
+              VybeFadeSlide(
+                duration: const Duration(milliseconds: 400),
+                delay: const Duration(milliseconds: 100),
+                child: HomeSearchBar(onTap: navigateToBooking),
               ),
               const SizedBox(height: 20),
 
-              // 2. Search Bar matching 4.jpg ("Where are you going?")
-              InkWell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LocationSelectorScreen(),
+              // 4. Featured Card 1: Quick Ride (matching home.jpg)
+              VybeFadeSlide(
+                duration: const Duration(milliseconds: 450),
+                delay: const Duration(milliseconds: 150),
+                child: QuickRideCard(onTap: navigateToBooking),
+              ),
+              const SizedBox(height: 14),
+
+              // 5. Featured Card 2: Office Commute (matching home.jpg)
+              VybeFadeSlide(
+                duration: const Duration(milliseconds: 500),
+                delay: const Duration(milliseconds: 200),
+                child: OfficeCommuteCard(onTap: navigateToBooking),
+              ),
+              const SizedBox(height: 14),
+
+              // 6. Split Cards: Airport Pickups & Scheduled Trips (matching home.jpg)
+              VybeFadeSlide(
+                duration: const Duration(milliseconds: 550),
+                delay: const Duration(milliseconds: 250),
+                child: Row(
+                  children: [
+                    ServiceGridCard(
+                      icon: Icons.flight_takeoff_rounded,
+                      title: 'Airport Pickups',
+                      description: 'Terminal pickup & drop with flight tracking',
+                      onTap: navigateToBooking,
                     ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  height: 52,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: const [AppColors.shadowSmall],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.search,
-                        color: AppColors.iconSecondary,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Where are you going?',
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: AppColors.textMuted,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
+                    const SizedBox(width: 14),
+                    ServiceGridCard(
+                      icon: Icons.calendar_today_rounded,
+                      title: 'Scheduled Trips',
+                      description: 'Book in advance for worry-free travel',
+                      onTap: navigateToBooking,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 26),
 
-              // 3. Category Tabs matching 4.jpg: Ride, Work, Care
-              Row(
-                children: [
-                  _buildCategoryTab(
-                    index: 0,
-                    label: 'Ride',
-                    icon: Icons.directions_car_filled_outlined,
-                  ),
-                  const SizedBox(width: 28),
-                  _buildCategoryTab(
-                    index: 1,
-                    label: 'Work',
-                    icon: Icons.business_outlined,
-                  ),
-                  const SizedBox(width: 28),
-                  _buildCategoryTab(
-                    index: 2,
-                    label: 'Care',
-                    icon: Icons.volunteer_activism_outlined,
-                  ),
-                ],
+              // 7. Dynamic Nearby Suggestions Section with Skeleton Loaders
+              const VybeFadeSlide(
+                duration: Duration(milliseconds: 600),
+                delay: Duration(milliseconds: 300),
+                child: NearbySuggestionsSection(),
               ),
               const SizedBox(height: 20),
-
-              // Subtitle
-              Text(
-                'Quick rides and pre-planned rides',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.textTertiary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 4. Grid of Cards matching 4.jpg
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Tall Left Card: Quick Ride
-                  Expanded(
-                    flex: 1,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const LocationSelectorScreen(),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        height: 310,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF7F4), // Light peach card bg
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: AppColors.primarySoft,
-                            width: 1.2,
-                          ),
-                          boxShadow: const [AppColors.shadowSmall],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Spacer(),
-                            // 3D Car Illustration container
-                            Center(
-                              child: Container(
-                                width: 130,
-                                height: 90,
-                                decoration: BoxDecoration(
-                                  color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: const [AppColors.shadowSmall],
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.local_taxi_rounded,
-                                    size: 56,
-                                    color: Color(0xFFE59837),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.speed_rounded,
-                                size: 16,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Quick Ride',
-                              style: AppTypography.titleLarge.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Instant ride with\navailable vehicles',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.textTertiary,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-
-                  // Right 2 stacked cards: Airport Pickup & Scheduled Ride
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      children: [
-                        // Card 1: Airport Pickup
-                        InkWell(
-                          onTap: () {
-                            ref
-                                .read(bookingControllerProvider.notifier)
-                                .setDestination(
-                                  BookingDummyData
-                                      .popularDestinations[2], // Airport
-                                );
-                            VehicleSelectionSheet.show(context);
-                          },
-                          borderRadius: BorderRadius.circular(18),
-                          child: Container(
-                            height: 148,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: AppColors.border),
-                              boxShadow: const [AppColors.shadowSmall],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Align(
-                                  alignment: Alignment.topRight,
-                                  child: VybeBadge(
-                                    label: 'Coming Soon',
-                                    type: VybeBadgeType.neutral,
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.flight_takeoff_rounded,
-                                  size: 24,
-                                  color: AppColors.iconSecondary,
-                                ),
-                                const Spacer(),
-                                Text(
-                                  'Airport Pickup',
-                                  style: AppTypography.titleMedium.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'OTP-based pickup at airport zones',
-                                  style: AppTypography.bodySmall.copyWith(
-                                    color: AppColors.textTertiary,
-                                    fontSize: 11,
-                                    height: 1.2,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Card 2: Scheduled Ride
-                        InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const LocationSelectorScreen(),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(18),
-                          child: Container(
-                            height: 148,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: AppColors.border),
-                              boxShadow: const [AppColors.shadowSmall],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Align(
-                                  alignment: Alignment.topRight,
-                                  child: VybeBadge(
-                                    label: 'Coming Soon',
-                                    type: VybeBadgeType.neutral,
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.calendar_today_rounded,
-                                  size: 22,
-                                  color: AppColors.iconSecondary,
-                                ),
-                                const Spacer(),
-                                Text(
-                                  'Scheduled Ride',
-                                  style: AppTypography.titleMedium.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Book for later, full day or multiple days',
-                                  style: AppTypography.bodySmall.copyWith(
-                                    color: AppColors.textTertiary,
-                                    fontSize: 11,
-                                    height: 1.2,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 28),
-
-              // Recent / Quick destinations
-              Text(
-                'Popular Destinations',
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...BookingDummyData.popularDestinations.take(3).map((dest) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: InkWell(
-                    onTap: () {
-                      ref
-                          .read(bookingControllerProvider.notifier)
-                          .setDestination(dest);
-                      VehicleSelectionSheet.show(context);
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.borderSubtle),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceSecondary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.location_on_outlined,
-                              size: 20,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  dest.title,
-                                  style: AppTypography.titleMedium.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  dest.subtitle,
-                                  style: AppTypography.bodySmall.copyWith(
-                                    color: AppColors.textTertiary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 14,
-                            color: AppColors.iconDisabled,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryTab({
-    required int index,
-    required String label,
-    required IconData icon,
-  }) {
-    final isSelected = _selectedCategoryIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCategoryIndex = index),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isSelected ? AppColors.primary : AppColors.iconSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 2.5,
-            width: 48,
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : Colors.transparent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
       ),
     );
   }

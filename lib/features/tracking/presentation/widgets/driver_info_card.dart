@@ -110,11 +110,15 @@ class DriverInfoCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            driver?.name ?? 'Assigned Driver',
-                            style: AppTypography.titleLarge.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
+                          Flexible(
+                            child: Text(
+                              driver?.name ?? 'Assigned Driver',
+                              style: AppTypography.titleLarge.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 6),

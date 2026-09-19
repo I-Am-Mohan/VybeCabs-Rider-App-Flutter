@@ -1,18 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/location_item.dart';
 import '../../domain/vehicle_tier.dart';
-import '../../data/booking_dummy_data.dart';
 import '../../../../core/services/location_service.dart';
 
 class BookingState {
-  final LocationItem pickup;
+  final LocationItem? pickup;
   final List<LocationItem> stops;
   final LocationItem? destination;
   final VehicleTier selectedVehicle;
   final List<VehicleTier> availableVehicles;
 
   const BookingState({
-    required this.pickup,
+    this.pickup,
     this.stops = const [],
     this.destination,
     required this.selectedVehicle,
@@ -45,14 +44,19 @@ class BookingState {
 final bookingControllerProvider =
     StateNotifierProvider<BookingController, BookingState>((ref) {
   final userLoc = ref.watch(userLocationProvider).value;
-  final pickup = userLoc ?? BookingDummyData.getInitialPickup(null, null);
-  final initialDest =
-      BookingDummyData.getDestinationsNear(pickup.coordinates).first;
-
-  return BookingController(
-    initialPickup: pickup,
-    initialDestination: initialDest,
+  final controller = BookingController(
+    initialPickup: userLoc,
+    initialDestination: null,
   );
+
+  // Dynamically sync pickup if user location finishes resolving after initialization
+  ref.listen<AsyncValue<LocationItem?>>(userLocationProvider, (prev, next) {
+    if (next.value != null) {
+      controller.syncUserLocationIfEmpty(next.value!);
+    }
+  });
+
+  return controller;
 });
 
 class BookingController extends StateNotifier<BookingState> {
@@ -61,12 +65,17 @@ class BookingController extends StateNotifier<BookingState> {
     LocationItem? initialDestination,
   }) : super(
           BookingState(
-            pickup:
-                initialPickup ?? BookingDummyData.getInitialPickup(null, null),
+            pickup: initialPickup,
             destination: initialDestination,
             selectedVehicle: VehicleTier.defaultTiers.first,
           ),
         );
+
+  void syncUserLocationIfEmpty(LocationItem location) {
+    if (state.pickup == null) {
+      state = state.copyWith(pickup: location);
+    }
+  }
 
   void updatePickupLocation(LocationItem location) {
     state = state.copyWith(pickup: location);
@@ -95,8 +104,8 @@ class BookingController extends StateNotifier<BookingState> {
   }
 
   void swapPickupAndDestination() {
-    if (state.destination != null) {
-      final oldPickup = state.pickup;
+    if (state.pickup != null && state.destination != null) {
+      final oldPickup = state.pickup!;
       final oldDest = state.destination!;
       state = state.copyWith(
         pickup: oldDest.copyWith(isCurrentLocation: false),
