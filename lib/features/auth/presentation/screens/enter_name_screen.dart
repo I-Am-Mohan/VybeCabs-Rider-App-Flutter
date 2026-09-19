@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vybe_button.dart';
@@ -15,11 +16,23 @@ class EnterNameScreen extends ConsumerStatefulWidget {
 }
 
 class _EnterNameScreenState extends ConsumerState<EnterNameScreen> {
-  final TextEditingController _firstNameController =
-      TextEditingController(text: 'Mohan');
-  final TextEditingController _lastNameController =
-      TextEditingController(text: 'Biswas');
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(authControllerProvider).user;
+    final first = (user?.firstName != null && user!.firstName != '')
+        ? user.firstName
+        : '';
+    final last = (user?.lastName != null && user!.lastName != '')
+        ? user.lastName
+        : '';
+    _firstNameController = TextEditingController(text: first);
+    _lastNameController = TextEditingController(text: last);
+  }
 
   @override
   void dispose() {
@@ -44,9 +57,7 @@ class _EnterNameScreenState extends ConsumerState<EnterNameScreen> {
 
     setState(() => _isLoading = true);
 
-    await ref
-        .read(authControllerProvider.notifier)
-        .updateUserName(first, last);
+    await ref.read(authControllerProvider.notifier).updateUserName(first, last);
 
     if (!mounted) return;
     setState(() => _isLoading = false);

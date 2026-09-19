@@ -16,47 +16,60 @@ class AuthRepository {
 
   User? get currentFirebaseUser => _auth.currentUser;
 
-  bool get isUserLoggedIn => _storage.isLoggedIn;
+  bool get isUserLoggedIn => _storage.isLoggedIn && _auth.currentUser != null;
 
   UserModel getCurrentUser() {
-    final nameParts = _storage.userName.split(' ');
-    final firstName = nameParts.isNotEmpty ? nameParts.first : 'Mohan';
-    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Biswas';
-    final sanitizedName = _storage.userName.toLowerCase().replaceAll(' ', '');
+    final firebaseUser = _auth.currentUser;
+    final storedName = _storage.userName.trim();
+    final firebaseDisplayName = (firebaseUser?.displayName ?? '').trim();
+    final displayName = storedName.isNotEmpty ? storedName : firebaseDisplayName;
+
+    final nameParts = displayName.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+    final phone = _storage.userPhone.isNotEmpty
+        ? _storage.userPhone
+        : (firebaseUser?.phoneNumber ?? '');
+    final sanitizedName = displayName.isNotEmpty
+        ? displayName.toLowerCase().replaceAll(RegExp(r'\s+'), '')
+        : (firebaseUser?.uid.isNotEmpty == true ? firebaseUser!.uid.substring(0, 6) : 'rider');
+
     return UserModel(
-      id: _auth.currentUser?.uid ?? 'vybe_user_local_1',
+      id: firebaseUser?.uid ?? 'vybe_user_local_1',
       firstName: firstName,
       lastName: lastName,
-      phone: _storage.userPhone,
-      email: '$sanitizedName@vybecabs.com',
+      phone: phone,
+      email: firebaseUser?.email ?? '$sanitizedName@vybecabs.com',
+      isVerified: true,
     );
   }
 
   Future<void> sendPhoneOtp({
     required String phoneNumber,
+    int? resendToken,
     required Function(String verificationId, int? resendToken) onCodeSent,
     required Function(FirebaseAuthException e) onVerificationFailed,
     required Function(PhoneAuthCredential credential) onAutoVerified,
+    required Function(String verificationId) onAutoRetrievalTimeout,
   }) async {
-    try {
-      await _auth.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        timeout: const Duration(seconds: 30),
-        verificationCompleted: (PhoneAuthCredential credential) {
-          onAutoVerified(credential);
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          onVerificationFailed(e);
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          onCodeSent(verificationId, resendToken);
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {},
-      );
-    } catch (e) {
-      // If network or platform issue, fallback safely
-      onCodeSent('dummy_verification_id_${DateTime.now().millisecondsSinceEpoch}', null);
-    }
+    final normalizedNumber = phoneNumber.replaceAll(RegExp(r'[\s\-]'), '');
+    await _auth.verifyPhoneNumber(
+      phoneNumber: normalizedNumber,
+      timeout: const Duration(seconds: 60),
+      forceResendingToken: resendToken,
+      verificationCompleted: (PhoneAuthCredential credential) {
+        onAutoVerified(credential);
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        onVerificationFailed(e);
+      },
+      codeSent: (String verificationId, int? token) {
+        onCodeSent(verificationId, token);
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        onAutoRetrievalTimeout(verificationId);
+      },
+    );
   }
 
   Future<UserModel> verifyOtpAndSignIn({
@@ -64,20 +77,39 @@ class AuthRepository {
     required String otp,
     required String phoneNumber,
   }) async {
-    try {
-      if (verificationId.isNotEmpty && !verificationId.startsWith('dummy_')) {
-        final credential = PhoneAuthProvider.credential(
-          verificationId: verificationId,
-          smsCode: otp,
-        );
-        await _auth.signInWithCredential(credential);
-      }
-    } catch (_) {
-      // Even if Firebase quota is exhausted or running in test mode, allow signing in
+    if (verificationId.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-verification-id',
+        message: 'No verification session found. Please request a new OTP.',
+      );
     }
 
-    await _storage.setUserPhone(phoneNumber);
+    final credential = PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: otp,
+    );
+
+    return signInWithCredential(
+      credential: credential,
+      phoneNumber: phoneNumber,
+    );
+  }
+
+  Future<UserModel> signInWithCredential({
+    required PhoneAuthCredential credential,
+    required String phoneNumber,
+  }) async {
+    final userCredential = await _auth.signInWithCredential(credential);
+    final firebaseUser = userCredential.user;
+
+    final normalizedPhone = phoneNumber.replaceAll(RegExp(r'[\s\-]'), '');
+    await _storage.setUserPhone(normalizedPhone);
     await _storage.setLoggedIn(true);
+
+    if (firebaseUser?.displayName != null && firebaseUser!.displayName!.trim().isNotEmpty) {
+      await _storage.setUserName(firebaseUser.displayName!.trim());
+    }
+
     return getCurrentUser();
   }
 

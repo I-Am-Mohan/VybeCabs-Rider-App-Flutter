@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/vybe_button.dart';
@@ -14,8 +16,9 @@ class PhoneInputScreen extends ConsumerStatefulWidget {
 }
 
 class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
-  final TextEditingController _phoneController =
-      TextEditingController(text: '6289761298');
+  final TextEditingController _phoneController = TextEditingController(
+    text: '',
+  );
   bool _isValid = true;
 
   @override
@@ -25,22 +28,42 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
   }
 
   void _onContinue() async {
-    final phoneText = _phoneController.text.trim();
-    if (phoneText.length != 10) {
+    final phoneDigits = _phoneController.text.trim().replaceAll(
+      RegExp(r'\D'),
+      '',
+    );
+    if (phoneDigits.length != 10) {
       setState(() => _isValid = false);
       return;
     }
     setState(() => _isValid = true);
 
-    final fullPhone = '+91 $phoneText';
-    await ref.read(authControllerProvider.notifier).sendOtp(fullPhone);
+    final fullPhone = '+91$phoneDigits';
+    final success = await ref
+        .read(authControllerProvider.notifier)
+        .sendOtp(fullPhone);
 
     if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OtpVerificationScreen(phoneNumber: fullPhone),
-      ),
-    );
+
+    if (success) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              OtpVerificationScreen(phoneNumber: '+91 $phoneDigits'),
+        ),
+      );
+    } else {
+      final error =
+          ref.read(authControllerProvider).errorMessage ??
+          'Failed to send OTP code. Please check the number and try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -81,7 +104,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'A 4-digit verification code will be sent via SMS to verify your mobile number.',
+                'A 6-digit verification code will be sent via SMS to verify your mobile number.',
                 style: AppTypography.bodyLarge.copyWith(
                   color: AppColors.textTertiary,
                 ),
@@ -97,7 +120,10 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                     width: 1.2,
                   ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: Row(
                   children: [
                     Row(
@@ -123,13 +149,16 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                       child: TextField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         maxLength: 10,
                         style: AppTypography.titleLarge.copyWith(
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.2,
                         ),
                         decoration: const InputDecoration(
-                          hintText: '98765 43210',
+                          hintText: 'Mobile number',
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -145,7 +174,46 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Please enter a valid 10-digit mobile number',
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+              if (authState.status == AuthStatus.error &&
+                  authState.errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.25),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          authState.errorMessage!,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
               const Spacer(),
